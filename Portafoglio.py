@@ -12,6 +12,26 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 
 # =========================
+# DIRECTORY PROGETTO
+# =========================
+
+try:
+    BASE_DIR = Path(__file__).resolve().parent
+except NameError:
+    BASE_DIR = Path.cwd()
+
+DATA_RAW_DIR = BASE_DIR / "data" / "raw"
+DATA_PROCESSED_DIR = BASE_DIR / "data" / "processed"
+FIGURES_DIR = BASE_DIR / "reports" / "figures"
+OUTPUT_DIR = BASE_DIR / "reports" / "output"
+
+DATA_RAW_DIR.mkdir(parents=True, exist_ok=True)
+DATA_PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# =========================
 # 2. MAPPING ISIN → TICKER
 # =========================
 
@@ -225,6 +245,16 @@ benchmark_data = yf.download(
 
 benchmark_prices = benchmark_data["Close"]
 
+benchmark_output_file = DATA_RAW_DIR / "benchmark_msci_world.csv"
+
+benchmark_prices.to_csv(
+    benchmark_output_file,
+    index=True,
+    encoding="utf-8"
+)
+
+print(f"Benchmark salvato correttamente in: {benchmark_output_file}")
+
 print("\nBenchmark MSCI World scaricato:")
 print(benchmark_prices.head())
 
@@ -262,15 +292,7 @@ close_prices_isin = close_prices.rename(columns=ticker_to_isin)
 print(close_prices_isin.head())
 
 
-
-# =========================
-# 10. SALVATAGGIO IN CSV
-# =========================
-
-try:
-    BASE_DIR = Path(__file__).resolve().parent
-except NameError:
-    BASE_DIR = Path.cwd()
+ 
 
 # =========================
 # CREAZIONE COUNTRY EXPOSURE DA JUSTETF
@@ -289,7 +311,7 @@ for isin in etf_map.keys():
 
 country_exposure_df = pd.DataFrame(country_exposure_list)
 
-country_exposure_file = BASE_DIR / "country_exposure_reale.csv"
+country_exposure_file = DATA_PROCESSED_DIR / "country_exposure_reale.csv"
 
 country_exposure_df.to_csv(
     country_exposure_file,
@@ -328,7 +350,7 @@ else:
 # SALVATAGGIO PREZZI ETF
 # =========================
 
-output_file = BASE_DIR / "prezzi_etf_portafoglio.csv"
+output_file = DATA_RAW_DIR / "prezzi_etf_portafoglio.csv"
 
 close_prices_isin.to_csv(
     output_file,
@@ -400,7 +422,7 @@ print(close_prices_clean.shape)
 # 11. SALVATAGGIO DATASET PULITO
 # =========================
 
-clean_output_file = BASE_DIR / "prezzi_etf_portafoglio_clean.csv"
+clean_output_file = DATA_PROCESSED_DIR / "prezzi_etf_portafoglio_clean.csv"
 
 close_prices_clean.to_csv(clean_output_file)
 
@@ -421,7 +443,7 @@ print(returns.head())
 # 13. SALVATAGGIO RENDIMENTI
 # =========================
 
-returns_output_file = BASE_DIR / "rendimenti_etf_portafoglio.csv"
+returns_output_file = DATA_PROCESSED_DIR / "rendimenti_etf_portafoglio.csv"
 
 returns.to_csv(returns_output_file)
 
