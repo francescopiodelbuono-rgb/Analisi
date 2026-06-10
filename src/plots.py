@@ -222,3 +222,84 @@ def plot_var_distribution(
     save_current_figure("var_distribution.png")
 
     plt.show()
+
+def plot_rolling_volatility(
+    rolling_vol_30,
+    rolling_vol_60,
+    benchmark_rolling_vol_30,
+    max_vol_30,
+    max_vol_60,
+    max_vol_30_date,
+    max_vol_60_date
+):
+    plt.figure(figsize=(15, 7))
+
+    plt.plot(
+        rolling_vol_30.index,
+        rolling_vol_30 * 100,
+        linewidth=2,
+        label="Rolling Volatility 30 giorni"
+    )
+
+    plt.plot(
+        rolling_vol_60.index,
+        rolling_vol_60 * 100,
+        linewidth=2,
+        linestyle="--",
+        label="Rolling Volatility 60 giorni"
+    )
+
+    plt.plot(
+        benchmark_rolling_vol_30.index,
+        benchmark_rolling_vol_30 * 100,
+        linewidth=2,
+        linestyle=":",
+        label="MSCI World Rolling Volatility 30 giorni"
+    )
+
+    plt.scatter(
+        max_vol_30_date,
+        max_vol_30 * 100,
+        s=120,
+        zorder=5
+    )
+
+    plt.scatter(
+        max_vol_60_date,
+        max_vol_60 * 100,
+        s=120,
+        zorder=5
+    )
+
+    plt.annotate(
+        f"30g: {max_vol_30:.2%}",
+        xy=(max_vol_30_date, max_vol_30 * 100),
+        xytext=(30, 10),
+        textcoords="offset points",
+        fontweight="bold",
+        arrowprops=dict(arrowstyle="->")
+    )
+
+    plt.annotate(
+        f"60g: {max_vol_60:.2%}",
+        xy=(max_vol_60_date, max_vol_60 * 100),
+        xytext=(30, -20),
+        textcoords="offset points",
+        fontweight="bold",
+        arrowprops=dict(arrowstyle="->")
+    )
+
+    plt.title(
+        "Confronto Rolling Volatility Annualizzata",
+        fontsize=18,
+        fontweight="bold"
+    )
+
+    plt.xlabel("Data", fontsize=13)
+    plt.ylabel("Volatilità annualizzata (%)", fontsize=13)
+    plt.grid(alpha=0.3)
+    plt.legend(fontsize=12)
+
+    save_current_figure("rolling_volatility.png")
+
+    plt.show()

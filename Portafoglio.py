@@ -46,7 +46,8 @@ from src.performance import (
 from src.plots import (
     save_current_figure,
     plot_max_drawdown,
-    plot_var_distribution
+    plot_var_distribution,
+    plot_rolling_volatility
 )
 
 # =========================
@@ -613,101 +614,15 @@ print(f"Data massimo 60 giorni: {max_vol_60_date.date()}")
 # GRAFICO ROLLING VOLATILITY
 # =========================
 
-plt.figure(figsize=(15, 7))
-
-# Rolling 30 giorni
-plt.plot(
-    rolling_vol_30.index,
-    rolling_vol_30 * 100,
-    linewidth=2,
-    label="Rolling Volatility 30 giorni"
+plot_rolling_volatility(
+    rolling_vol_30=rolling_vol_30,
+    rolling_vol_60=rolling_vol_60,
+    benchmark_rolling_vol_30=benchmark_rolling_vol_30,
+    max_vol_30=max_vol_30,
+    max_vol_60=max_vol_60,
+    max_vol_30_date=max_vol_30_date,
+    max_vol_60_date=max_vol_60_date
 )
-
-# Rolling 60 giorni
-plt.plot(
-    rolling_vol_60.index,
-    rolling_vol_60 * 100,
-    linewidth=2,
-    linestyle="--",
-    label="Rolling Volatility 60 giorni"
-)
-
-# Benchmark MSCI World
-plt.plot(
-    benchmark_rolling_vol_30.index,
-    benchmark_rolling_vol_30 * 100,
-    linewidth=2,
-    linestyle=":",
-    label="MSCI World Rolling Volatility 30 giorni"
-)
-
-# Punto massimo 30 giorni
-plt.scatter(
-    max_vol_30_date,
-    max_vol_30 * 100,
-    color="red",
-    s=120,
-    zorder=5
-)
-
-# Punto massimo 60 giorni
-plt.scatter(
-    max_vol_60_date,
-    max_vol_60 * 100,
-    color="orange",
-    s=120,
-    zorder=5
-)
-
-
-# Annotazione massimo 30 giorni
-plt.annotate(
-    f"30g: {max_vol_30:.2%}",
-    xy=(max_vol_30_date, max_vol_30 * 100),
-    xytext=(30, 10),
-    textcoords="offset points",
-    color="red",
-    fontweight="bold",
-    arrowprops=dict(
-        arrowstyle="->",
-        color="red"
-    )
-)
-
-# Annotazione massimo 60 giorni
-plt.annotate(
-    f"60g: {max_vol_60:.2%}",
-    xy=(max_vol_60_date, max_vol_60 * 100),
-    xytext=(30, -20),
-    textcoords="offset points",
-    color="orange",
-    fontweight="bold",
-    arrowprops=dict(
-        arrowstyle="->",
-        color="orange"
-    )
-)
-
-plt.title(
-    "Confronto Rolling Volatility Annualizzata",
-    fontsize=18,
-    fontweight="bold"
-)
-
-
-plt.xlabel("Data", fontsize=13)
-
-plt.ylabel(
-    "Volatilità annualizzata (%)",
-    fontsize=13
-)
-
-plt.grid(alpha=0.3)
-
-plt.legend(fontsize=12)
-
-plt.show()
-
 
 # %%
 # =========================
