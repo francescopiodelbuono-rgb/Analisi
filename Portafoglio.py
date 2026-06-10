@@ -19,6 +19,19 @@ from src.config import (
     OUTPUT_DIR,
 )
 
+from src.data_loader import (
+    create_mapping_dataframe,
+    get_tickers,
+    download_etf_prices,
+    download_benchmark
+)
+
+from src.cleaning import (
+    calculate_missing_percentage,
+    create_data_quality_report,
+    clean_price_data
+)
+
 # =========================
 # HTML PARSING JUSTETF
 # =========================
@@ -159,42 +172,20 @@ def scrape_justetf_country_exposure(isin):
 # 3. CREAZIONE DATAFRAME MAPPING
 # =========================
 
-mapping_df = pd.DataFrame(
-    list(ETF_MAP.items()),
-    columns=["ISIN", "Ticker"]
-)
+mapping_df = create_mapping_dataframe()
 
 print(mapping_df)
 
-
-# =========================
-# 4. LISTA TICKER
-# =========================
-
-tickers = mapping_df["Ticker"].tolist()
+tickers = get_tickers()
 
 print("Ticker da scaricare:")
 print(tickers)
-
 
 # =========================
 # 5. DOWNLOAD DATI DA YFINANCE
 # =========================
 
-prices = yf.download(
-    tickers=tickers,
-    start="2016-06-01",
-    end=None,
-    auto_adjust=True,
-    progress=False
-)
-
-
-# =========================
-# 6. ESTRAZIONE PREZZI DI CHIUSURA
-# =========================
-
-close_prices = prices["Close"]
+close_prices = download_etf_prices()
 
 print(close_prices.head())
 print(close_prices.tail())
@@ -203,31 +194,11 @@ print(close_prices.tail())
 # DOWNLOAD BENCHMARK MSCI WORLD
 # =========================
 
-# Quotazione Borsa Italiana in EUR, coerente con il portafoglio europeo.
-benchmark_ticker = "SWDA.MI"
 
-benchmark_data = yf.download(
-    benchmark_ticker,
-    start="2016-06-01",
-    auto_adjust=True,
-    progress=False
-)
-
-benchmark_prices = benchmark_data["Close"]
-
-benchmark_output_file = DATA_RAW_DIR / "benchmark_msci_world.csv"
-
-benchmark_prices.to_csv(
-    benchmark_output_file,
-    index=True,
-    encoding="utf-8"
-)
-
-print(f"Benchmark salvato correttamente in: {benchmark_output_file}")
+benchmark_prices = download_benchmark()
 
 print("\nBenchmark MSCI World scaricato:")
 print(benchmark_prices.head())
-
 
 
 
@@ -333,76 +304,31 @@ print(f"File salvato correttamente in: {output_file}")
 # =========================
 # DATA CLEANING
 # =========================
-
-# Percentuale valori mancanti
 missing_percentage = (
-    close_prices_isin.isna().mean() * 100
+    calculate_missing_percentage(
+        close_prices_isin
+    )
 )
 
 print("\nPercentuale valori mancanti:")
 print(missing_percentage)
 
-
-def max_consecutive_missing(series):
-    """Restituisce il massimo numero di NaN consecutivi nello storico valido."""
-    first_valid = series.first_valid_index()
-    last_valid = series.last_valid_index()
-
-    if first_valid is None or last_valid is None:
-        return len(series)
-
-    missing = series.loc[first_valid:last_valid].isna()
-    missing_groups = missing.ne(missing.shift()).cumsum()
-    return int(missing.groupby(missing_groups).sum().max())
-
-
-data_quality_df = pd.DataFrame({
-    "Prima_Data_Valida": close_prices_isin.apply(
-        lambda series: series.first_valid_index()
-    ),
-    "Ultima_Data_Valida": close_prices_isin.apply(
-        lambda series: series.last_valid_index()
-    ),
-    "Osservazioni_Mancanti": close_prices_isin.isna().sum(),
-    "Percentuale_Mancante": missing_percentage,
-    "Massimo_Gap_Interno": close_prices_isin.apply(
-        max_consecutive_missing
+data_quality_df = (
+    create_data_quality_report(
+        close_prices_isin,
+        missing_percentage
     )
-})
-
-data_quality_output_file = OUTPUT_DIR / "qualita_dati_etf.csv"
-data_quality_df.to_csv(data_quality_output_file)
+)
 
 print("\nReport qualità dati ETF:")
 print(data_quality_df)
-print(f"Report qualità salvato in: {data_quality_output_file}")
-
 
 # Elimina ETF con troppi dati mancanti
-threshold = 20
-
-valid_columns = missing_percentage[
-    missing_percentage < threshold
-].index
-
-close_prices_filtered = close_prices_isin[
-    valid_columns
-]
-
-print("\nETF mantenuti:")
-print(close_prices_filtered.columns)
-
-
-
-# Il limite evita lunghi periodi artificiali a rendimento zero.
-max_forward_fill_days = 2
-close_prices_clean = close_prices_filtered.ffill(
-    limit=max_forward_fill_days
+close_prices_clean, missing_percentage = (
+    clean_price_data(
+        close_prices_isin
+    )
 )
-
-
-# Elimina eventuali NaN residui
-close_prices_clean = close_prices_clean.dropna()
 
 # =========================
 # 12. CALCOLO RENDIMENTI GIORNALIERI
