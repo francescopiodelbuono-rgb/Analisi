@@ -32,6 +32,13 @@ from src.cleaning import (
     clean_price_data
 )
 
+from src.risk import (
+    calculate_portfolio_returns,
+    calculate_drawdown,
+    calculate_var,
+    calculate_rolling_volatility
+)
+
 # =========================
 # HTML PARSING JUSTETF
 # =========================
@@ -397,46 +404,59 @@ print((returns * 100).head())
 # MAX DRAWDOWN ANALYSIS
 # =========================
 
-# Portafoglio equiponderato iniziale
-equal_weights = np.ones(len(returns.columns)) / len(returns.columns)
+portfolio_returns = (
+    calculate_portfolio_returns(
+        returns
+    )
+)
 
-# Rendimenti giornalieri del portafoglio
-portfolio_returns = returns.dot(equal_weights)
+drawdown_results = (
+    calculate_drawdown(
+        portfolio_returns
+    )
+)
 
-# Curva cumulata del portafoglio
-cumulative_returns = (1 + portfolio_returns).cumprod()
+portfolio_value = (
+    drawdown_results["portfolio_value"]
+)
 
-# Capitale iniziale ipotetico
+running_max = (
+    drawdown_results["running_max"]
+)
+
+drawdown = (
+    drawdown_results["drawdown"]
+)
+
+max_drawdown = (
+    drawdown_results["max_drawdown"]
+)
+
+worst_date = (
+    drawdown_results["worst_date"]
+)
+
+peak_date = (
+    drawdown_results["peak_date"]
+)
+
+peak_value = (
+    drawdown_results["peak_value"]
+)
+
+trough_value = (
+    drawdown_results["trough_value"]
+)
+
+loss_amount = (
+    drawdown_results["loss_amount"]
+)
+
+drawdown_duration = (
+    drawdown_results["drawdown_duration"]
+)
+
 initial_capital = 10000
-
-portfolio_value = cumulative_returns * initial_capital
-
-# Massimo storico progressivo
-running_max = portfolio_value.cummax()
-
-# Drawdown percentuale
-drawdown = (portfolio_value - running_max) / running_max
-
-# Max Drawdown
-max_drawdown = drawdown.min()
-
-# Data peggior drawdown
-worst_date = drawdown.idxmin()
-
-# Data del picco precedente
-peak_date = portfolio_value.loc[:worst_date].idxmax()
-
-# Valore al picco
-peak_value = portfolio_value.loc[peak_date]
-
-# Valore minimo
-trough_value = portfolio_value.loc[worst_date]
-
-# Perdita monetaria
-loss_amount = trough_value - peak_value
-
-# Durata drawdown
-drawdown_duration = worst_date - peak_date
 
 print("\n=========================")
 print("MAX DRAWDOWN ANALYSIS")
@@ -449,8 +469,6 @@ print(f"Durata fino al minimo: {drawdown_duration.days} giorni")
 print(f"Valore al picco: €{peak_value:,.2f}")
 print(f"Valore al minimo: €{trough_value:,.2f}")
 print(f"Perdita stimata: €{loss_amount:,.2f}")
-
-
 
 # =========================
 # BENCHMARK VALUE - €10.000 INIZIALI
