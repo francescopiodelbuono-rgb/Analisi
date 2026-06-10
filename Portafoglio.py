@@ -39,6 +39,10 @@ from src.risk import (
     calculate_rolling_volatility
 )
 
+from src.performance import (
+    calculate_basic_performance_metrics
+)
+
 # =========================
 # HTML PARSING JUSTETF
 # =========================
@@ -644,27 +648,16 @@ plt.show()
 ### consapevole dei limiti dell’ipotesi di normalità dei rendimenti. 
 ### Per questo ho affiancato anche un Historical VaR basato sulla distribuzione empirica.
 
-confidence_level = 0.95
-
-# =========================
-# VAR STORICO
-# =========================
-
-historical_var = np.percentile(
+var_results = calculate_var(
     portfolio_returns,
-    (1 - confidence_level) * 100
+    confidence_level=0.95,
+    initial_capital=initial_capital
 )
 
-# =========================
-# VAR PARAMETRICO
-# =========================
-
-portfolio_mean = portfolio_returns.mean()
-portfolio_std = portfolio_returns.std()
-
-z_score_95 = 1.65
-
-parametric_var = portfolio_mean - z_score_95 * portfolio_std
+historical_var = var_results["historical_var"]
+parametric_var = var_results["parametric_var"]
+historical_var_amount = var_results["historical_var_amount"]
+parametric_var_amount = var_results["parametric_var_amount"]
 
 print("\n=========================")
 print("VALUE AT RISK ANALYSIS")
@@ -672,11 +665,6 @@ print("=========================")
 
 print(f"VaR storico giornaliero al 95%: {historical_var:.2%}")
 print(f"VaR parametrico giornaliero al 95%: {parametric_var:.2%}")
-
-# Perdita stimata su capitale iniziale
-historical_var_amount = initial_capital * historical_var
-parametric_var_amount = initial_capital * parametric_var
-
 print(f"Perdita stimata VaR storico su €{initial_capital:,.0f}: €{historical_var_amount:,.2f}")
 print(f"Perdita stimata VaR parametrico su €{initial_capital:,.0f}: €{parametric_var_amount:,.2f}")
 
@@ -779,36 +767,40 @@ plt.show()
 # =========================
 
 # Rolling volatility 30 giorni
+rolling_results = (
+    calculate_rolling_volatility(
+        portfolio_returns,
+        benchmark_returns
+    )
+)
+
 rolling_vol_30 = (
-    portfolio_returns
-    .rolling(window=30)
-    .std()
-    * np.sqrt(252)
+    rolling_results["rolling_vol_30"]
 )
 
-# Rolling volatility 60 giorni
 rolling_vol_60 = (
-    portfolio_returns
-    .rolling(window=60)
-    .std()
-    * np.sqrt(252)
+    rolling_results["rolling_vol_60"]
 )
 
-# Rolling volatility benchmark MSCI World
 benchmark_rolling_vol_30 = (
-    benchmark_returns
-    .rolling(window=30)
-    .std()
-    * np.sqrt(252)
+    rolling_results["benchmark_rolling_vol_30"]
 )
 
-# Massimi volatilità
-max_vol_30 = rolling_vol_30.max()
-max_vol_60 = rolling_vol_60.max()
+max_vol_30 = (
+    rolling_results["max_vol_30"]
+)
 
-# Date massimi
-max_vol_30_date = rolling_vol_30.idxmax()
-max_vol_60_date = rolling_vol_60.idxmax()
+max_vol_60 = (
+    rolling_results["max_vol_60"]
+)
+
+max_vol_30_date = (
+    rolling_results["max_vol_30_date"]
+)
+
+max_vol_60_date = (
+    rolling_results["max_vol_60_date"]
+)
 
 print("\n=========================")
 print("ROLLING VOLATILITY ANALYSIS")
@@ -1250,96 +1242,45 @@ plt.show()
 
 risk_free_rate = 0.02
 
-# =========================
-# METRICHE PORTAFOGLIO
-# =========================
+performance_results = (
+    calculate_basic_performance_metrics(
+        portfolio_returns,
+        benchmark_returns_aligned,
+        drawdown,
+        risk_free_rate
+    )
+)
 
 portfolio_annual_return = (
-    portfolio_returns.mean() * 252
+    performance_results["portfolio_annual_return"]
 )
 
 portfolio_annual_volatility = (
-    portfolio_returns.std() * np.sqrt(252)
+    performance_results["portfolio_annual_volatility"]
 )
 
 portfolio_sharpe = (
-    (portfolio_annual_return - risk_free_rate)
-    / portfolio_annual_volatility
+    performance_results["portfolio_sharpe"]
 )
 
-portfolio_max_drawdown = drawdown.min()
-
-# =========================
-# METRICHE BENCHMARK
-# =========================
-
-benchmark_cumulative = (
-    1 + benchmark_returns_aligned
-).cumprod()
-
-benchmark_running_max = (
-    benchmark_cumulative.cummax()
+portfolio_max_drawdown = (
+    performance_results["portfolio_max_drawdown"]
 )
-
-benchmark_drawdown = (
-    benchmark_cumulative - benchmark_running_max
-) / benchmark_running_max
-
-benchmark_max_drawdown = benchmark_drawdown.min()
 
 benchmark_annual_return = (
-    benchmark_returns_aligned.mean() * 252
+    performance_results["benchmark_annual_return"]
 )
 
 benchmark_annual_volatility = (
-    benchmark_returns_aligned.std() * np.sqrt(252)
+    performance_results["benchmark_annual_volatility"]
 )
 
 benchmark_sharpe = (
-    (benchmark_annual_return - risk_free_rate)
-    / benchmark_annual_volatility
+    performance_results["benchmark_sharpe"]
 )
 
-# =========================
-# TABELLA CONFRONTO
-# =========================
-
-comparison_df = pd.DataFrame({
-    "Portafoglio": [
-        portfolio_annual_return,
-        portfolio_annual_volatility,
-        portfolio_sharpe,
-        portfolio_max_drawdown
-    ],
-    "Benchmark MSCI World": [
-        benchmark_annual_return,
-        benchmark_annual_volatility,
-        benchmark_sharpe,
-        benchmark_max_drawdown
-    ]
-},
-index=[
-    "Rendimento Annualizzato",
-    "Volatilità Annualizzata",
-    "Sharpe Ratio",
-    "Max Drawdown"
-])
-
-# Conversione percentuali
-comparison_df.loc[
-    [
-        "Rendimento Annualizzato",
-        "Volatilità Annualizzata",
-        "Max Drawdown"
-    ]
-] = (
-    comparison_df.loc[
-        [
-            "Rendimento Annualizzato",
-            "Volatilità Annualizzata",
-            "Max Drawdown"
-        ]
-    ] * 100
+benchmark_max_drawdown = (
+    performance_results["benchmark_max_drawdown"]
 )
 
 # =========================
