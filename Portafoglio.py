@@ -6,49 +6,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import yfinance as yf
-from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 
-# =========================
-# DIRECTORY PROGETTO
-# =========================
-
-try:
-    BASE_DIR = Path(__file__).resolve().parent
-except NameError:
-    BASE_DIR = Path.cwd()
-
-DATA_RAW_DIR = BASE_DIR / "data" / "raw"
-DATA_PROCESSED_DIR = BASE_DIR / "data" / "processed"
-FIGURES_DIR = BASE_DIR / "reports" / "figures"
-OUTPUT_DIR = BASE_DIR / "reports" / "output"
-
-DATA_RAW_DIR.mkdir(parents=True, exist_ok=True)
-DATA_PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
-FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-
-# =========================
-# 2. MAPPING ISIN → TICKER
-# =========================
-
-etf_map = {
-    "IE00BM67HS53": "XDWM.MI",      # Materials
-    "IE00BM67HM91": "XDW0.DE",     # Energy
-    "IE00BM67HV82": "XDWI.MI",      # Industrials
-    "IE00BM67HQ30": "XDWU.MI",      # Utilities
-    "IE00B5L01S80": "HPRD.L",      # Real Estate
-    "IE00BM67HL84": "XDWF.DE",     # Financials
-    "IE00BM67HK77": "XDWH.MI",      # Health Care
-    "IE00BM67HN09": "XDWS.MI",      # Consumer Staples
-    "IE00BM67HT60": "XDWT.MI",      # Information Technology
-    "IE00BM67HP23": "XDWC.MI",      # Consumer Discretionary
-    "IE00BM67HR47": "XWTS.MI"      # Communication Services
-}
-
+from src.config import (
+    ETF_MAP,
+    SECTOR_MAP,
+    DATA_RAW_DIR,
+    DATA_PROCESSED_DIR,
+    FIGURES_DIR,
+    OUTPUT_DIR,
+)
 
 # =========================
 # HTML PARSING JUSTETF
@@ -191,7 +160,7 @@ def scrape_justetf_country_exposure(isin):
 # =========================
 
 mapping_df = pd.DataFrame(
-    list(etf_map.items()),
+    list(ETF_MAP.items()),
     columns=["ISIN", "Ticker"]
 )
 
@@ -234,7 +203,8 @@ print(close_prices.tail())
 # DOWNLOAD BENCHMARK MSCI WORLD
 # =========================
 
-benchmark_ticker = "URTH"
+# Quotazione Borsa Italiana in EUR, coerente con il portafoglio europeo.
+benchmark_ticker = "SWDA.MI"
 
 benchmark_data = yf.download(
     benchmark_ticker,
@@ -285,7 +255,7 @@ close_prices = close_prices.dropna(how="all")
 # 9. RINOMINA COLONNE DA TICKER A ISIN
 # =========================
 
-ticker_to_isin = {ticker: isin for isin, ticker in etf_map.items()}
+ticker_to_isin = {ticker: isin for isin, ticker in ETF_MAP.items()}
 
 close_prices_isin = close_prices.rename(columns=ticker_to_isin)
 
@@ -300,7 +270,7 @@ print(close_prices_isin.head())
 
 country_exposure_list = []
 
-for isin in etf_map.keys():
+for isin in ETF_MAP.keys():
 
     print(f"Scarico esposizione geografica per {isin}")
 
@@ -373,6 +343,41 @@ print("\nPercentuale valori mancanti:")
 print(missing_percentage)
 
 
+def max_consecutive_missing(series):
+    """Restituisce il massimo numero di NaN consecutivi nello storico valido."""
+    first_valid = series.first_valid_index()
+    last_valid = series.last_valid_index()
+
+    if first_valid is None or last_valid is None:
+        return len(series)
+
+    missing = series.loc[first_valid:last_valid].isna()
+    missing_groups = missing.ne(missing.shift()).cumsum()
+    return int(missing.groupby(missing_groups).sum().max())
+
+
+data_quality_df = pd.DataFrame({
+    "Prima_Data_Valida": close_prices_isin.apply(
+        lambda series: series.first_valid_index()
+    ),
+    "Ultima_Data_Valida": close_prices_isin.apply(
+        lambda series: series.last_valid_index()
+    ),
+    "Osservazioni_Mancanti": close_prices_isin.isna().sum(),
+    "Percentuale_Mancante": missing_percentage,
+    "Massimo_Gap_Interno": close_prices_isin.apply(
+        max_consecutive_missing
+    )
+})
+
+data_quality_output_file = OUTPUT_DIR / "qualita_dati_etf.csv"
+data_quality_df.to_csv(data_quality_output_file)
+
+print("\nReport qualità dati ETF:")
+print(data_quality_df)
+print(f"Report qualità salvato in: {data_quality_output_file}")
+
+
 # Elimina ETF con troppi dati mancanti
 threshold = 20
 
@@ -389,8 +394,11 @@ print(close_prices_filtered.columns)
 
 
 
-# Forward fill piccoli buchi
-close_prices_clean = close_prices_filtered.ffill()
+# Il limite evita lunghi periodi artificiali a rendimento zero.
+max_forward_fill_days = 2
+close_prices_clean = close_prices_filtered.ffill(
+    limit=max_forward_fill_days
+)
 
 
 # Elimina eventuali NaN residui
@@ -1273,23 +1281,10 @@ explode = [0.01] * len(best_portfolio_filtered)
 
 plt.figure(figsize=(10, 10))
 
-sector_map = {
-    "IE00BM67HS53": "Materials",
-    "IE00BM67HM91": "Energy",
-    "IE00BM67HV82": "Industrials",
-    "IE00BM67HQ30": "Utilities",
-    "IE00B5L01S80": "Real Estate",
-    "IE00BM67HL84": "Financials",
-    "IE00BM67HK77": "Health Care",
-    "IE00BM67HN09": "Consumer Staples",
-    "IE00BM67HT60": "Technology",
-    "IE00BM67HP23": "Consumer Discretionary",
-    "IE00BM67HR47": "Communication Services"
-}
 
 best_portfolio_filtered["Sector"] = (
     best_portfolio_filtered["ISIN"]
-    .map(sector_map)
+    .map(SECTOR_MAP)
 )
 
 plt.pie(
@@ -1442,18 +1437,256 @@ print(
 print("="*60)
 
 
-####### 1. Max Drawdown
-####### 2. VaR storico e parametrico
-####### 3. Rolling volatility
-####### 4. Efficient Frontier
-####### 5. Benchmark comparison
+
 
 
 # %%
 
-#tracking error
-#information ratio
-#beta vs benchmark
-#alpha
-#rolling correlation
-#rolling beta
+# =========================
+# METRICHE RELATIVE AL BENCHMARK
+# =========================
+
+trading_days = 252
+rolling_window = 252
+rolling_min_periods = 60
+
+# yfinance può restituire il benchmark come DataFrame a una colonna.
+benchmark_returns_series = benchmark_returns.squeeze()
+benchmark_returns_series.name = "Benchmark"
+
+relative_returns = pd.concat(
+    [
+        portfolio_returns.rename("Portafoglio"),
+        benchmark_returns_series
+    ],
+    axis=1,
+    join="inner"
+).dropna()
+
+if relative_returns.empty:
+    raise ValueError(
+        "Nessuna osservazione comune tra portafoglio e benchmark."
+    )
+
+portfolio_relative = relative_returns["Portafoglio"]
+benchmark_relative = relative_returns["Benchmark"]
+active_returns = portfolio_relative - benchmark_relative
+
+# Diagnostica delle date non comuni tra portafoglio e benchmark.
+alignment_index = portfolio_returns.index.union(
+    benchmark_returns_series.index
+)
+alignment_report_df = pd.DataFrame(index=alignment_index)
+alignment_report_df["Portafoglio_Disponibile"] = (
+    alignment_report_df.index.isin(portfolio_returns.index)
+)
+alignment_report_df["Benchmark_Disponibile"] = (
+    alignment_report_df.index.isin(benchmark_returns_series.index)
+)
+alignment_report_df["Data_Allineata"] = (
+    alignment_report_df["Portafoglio_Disponibile"]
+    & alignment_report_df["Benchmark_Disponibile"]
+)
+alignment_anomalies_df = alignment_report_df[
+    ~alignment_report_df["Data_Allineata"]
+]
+
+alignment_output_file = (
+    OUTPUT_DIR / "diagnostica_allineamento_benchmark.csv"
+)
+alignment_anomalies_df.to_csv(alignment_output_file)
+
+# Tracking Error: volatilità annualizzata dei rendimenti attivi.
+tracking_error = active_returns.std() * np.sqrt(trading_days)
+
+# Information Ratio: rendimento attivo annualizzato / Tracking Error.
+annualized_active_return = active_returns.mean() * trading_days
+information_ratio = (
+    annualized_active_return / tracking_error
+    if tracking_error > 0
+    else np.nan
+)
+
+# Beta: sensibilità del portafoglio alle variazioni del benchmark.
+benchmark_variance = benchmark_relative.var()
+beta_vs_benchmark = (
+    portfolio_relative.cov(benchmark_relative) / benchmark_variance
+    if benchmark_variance > 0
+    else np.nan
+)
+
+# Alpha di Jensen annualizzato.
+daily_risk_free_rate = (
+    (1 + risk_free_rate) ** (1 / trading_days) - 1
+)
+daily_alpha = (
+    (portfolio_relative - daily_risk_free_rate)
+    - beta_vs_benchmark
+    * (benchmark_relative - daily_risk_free_rate)
+).mean()
+alpha_annualized = daily_alpha * trading_days
+
+# Correlazione e beta rolling su circa un anno di negoziazione.
+rolling_correlation = (
+    portfolio_relative
+    .rolling(
+        window=rolling_window,
+        min_periods=rolling_min_periods
+    )
+    .corr(benchmark_relative)
+)
+
+rolling_benchmark_variance = (
+    benchmark_relative
+    .rolling(
+        window=rolling_window,
+        min_periods=rolling_min_periods
+    )
+    .var()
+)
+
+rolling_beta = (
+    portfolio_relative
+    .rolling(
+        window=rolling_window,
+        min_periods=rolling_min_periods
+    )
+    .cov(benchmark_relative)
+    / rolling_benchmark_variance
+).replace([np.inf, -np.inf], np.nan)
+
+# Gli active return estremi aiutano a individuare dati anomali.
+active_return_diagnostics_df = relative_returns.copy()
+active_return_diagnostics_df["Active Return"] = active_returns
+active_return_diagnostics_df["Active Return Assoluto"] = (
+    active_returns.abs()
+)
+active_return_diagnostics_df = (
+    active_return_diagnostics_df
+    .sort_values("Active Return Assoluto", ascending=False)
+)
+
+active_return_output_file = (
+    OUTPUT_DIR / "diagnostica_active_returns.csv"
+)
+active_return_diagnostics_df.to_csv(active_return_output_file)
+
+# =========================
+# OUTPUT METRICHE
+# =========================
+
+relative_metrics_df = pd.DataFrame(
+    {
+        "Valore": [
+            tracking_error,
+            information_ratio,
+            beta_vs_benchmark,
+            alpha_annualized
+        ]
+    },
+    index=[
+        "Tracking Error Annualizzato",
+        "Information Ratio",
+        "Beta vs Benchmark",
+        "Alpha di Jensen Annualizzato"
+    ]
+)
+
+rolling_metrics_df = pd.DataFrame(
+    {
+        "Rolling Correlation": rolling_correlation,
+        "Rolling Beta": rolling_beta
+    }
+)
+
+relative_metrics_output_file = (
+    OUTPUT_DIR / "metriche_relative_benchmark.csv"
+)
+rolling_metrics_output_file = (
+    OUTPUT_DIR / "metriche_rolling_benchmark.csv"
+)
+
+relative_metrics_df.to_csv(relative_metrics_output_file)
+rolling_metrics_df.to_csv(rolling_metrics_output_file)
+
+print("\n" + "=" * 60)
+print("METRICHE RELATIVE AL BENCHMARK MSCI WORLD")
+print("=" * 60)
+print(f"Tracking Error annualizzato: {tracking_error:.2%}")
+print(f"Information Ratio:           {information_ratio:.2f}")
+print(f"Beta vs Benchmark:           {beta_vs_benchmark:.2f}")
+print(f"Alpha di Jensen annualizzato:{alpha_annualized:>10.2%}")
+print(f"Date non allineate:          {len(alignment_anomalies_df)}")
+print("=" * 60)
+
+print("\nPrime 10 anomalie per active return assoluto:")
+print(
+    active_return_diagnostics_df[
+        ["Portafoglio", "Benchmark", "Active Return"]
+    ].head(10)
+)
+
+# =========================
+# GRAFICI ROLLING
+# =========================
+
+fig, axes = plt.subplots(
+    nrows=2,
+    ncols=1,
+    figsize=(14, 10),
+    sharex=True
+)
+
+axes[0].plot(
+    rolling_correlation.index,
+    rolling_correlation,
+    color="tab:blue",
+    linewidth=1.5
+)
+axes[0].axhline(0, color="black", linewidth=0.8, linestyle="--")
+axes[0].set_title(
+    f"Correlazione Rolling Portafoglio-Benchmark "
+    f"({rolling_window} sedute)"
+)
+axes[0].set_ylabel("Correlazione")
+axes[0].set_ylim(-1.05, 1.05)
+axes[0].grid(alpha=0.3)
+
+axes[1].plot(
+    rolling_beta.index,
+    rolling_beta,
+    color="tab:orange",
+    linewidth=1.5
+)
+axes[1].axhline(
+    1,
+    color="black",
+    linewidth=0.8,
+    linestyle="--",
+    label="Beta benchmark = 1"
+)
+axes[1].set_title(
+    f"Beta Rolling vs Benchmark ({rolling_window} sedute)"
+)
+axes[1].set_xlabel("Data")
+axes[1].set_ylabel("Beta")
+axes[1].grid(alpha=0.3)
+axes[1].legend()
+
+plt.tight_layout()
+
+rolling_figure_file = (
+    FIGURES_DIR / "rolling_correlation_beta_benchmark.png"
+)
+plt.savefig(
+    rolling_figure_file,
+    dpi=300,
+    bbox_inches="tight"
+)
+plt.show()
+
+print(f"Metriche relative salvate in: {relative_metrics_output_file}")
+print(f"Metriche rolling salvate in: {rolling_metrics_output_file}")
+print(f"Diagnostica allineamento salvata in: {alignment_output_file}")
+print(f"Diagnostica active return salvata in: {active_return_output_file}")
+print(f"Grafico rolling salvato in: {rolling_figure_file}")
