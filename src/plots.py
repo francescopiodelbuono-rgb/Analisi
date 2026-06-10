@@ -144,3 +144,81 @@ def plot_max_drawdown(
     save_current_figure("max_drawdown.png")
 
     plt.show()
+
+from scipy.stats import norm
+
+
+def plot_var_distribution(
+    portfolio_returns,
+    historical_var,
+    parametric_var
+):
+    plt.figure(figsize=(14, 7))
+
+    plt.hist(
+        portfolio_returns,
+        bins=50,
+        density=True,
+        alpha=0.6,
+        edgecolor="black",
+        label="Rendimenti giornalieri"
+    )
+
+    x = np.linspace(
+        portfolio_returns.min(),
+        portfolio_returns.max(),
+        1000
+    )
+
+    plt.plot(
+        x,
+        norm.pdf(
+            x,
+            portfolio_returns.mean(),
+            portfolio_returns.std()
+        ),
+        linewidth=2,
+        label="Distribuzione normale teorica"
+    )
+
+    plt.axvline(
+        historical_var,
+        linestyle="--",
+        linewidth=2,
+        label=f"VaR Storico 95%: {historical_var:.2%}"
+    )
+
+    plt.axvline(
+        parametric_var,
+        linestyle="--",
+        linewidth=2,
+        label=f"VaR Parametrico 95%: {parametric_var:.2%}"
+    )
+
+    plt.axvline(
+        portfolio_returns.mean(),
+        linestyle=":",
+        linewidth=2,
+        label=f"Media: {portfolio_returns.mean():.2%}"
+    )
+
+    plt.axvspan(
+        portfolio_returns.min(),
+        historical_var,
+        alpha=0.2
+    )
+
+    plt.title(
+        "Distribuzione Rendimenti Giornalieri e Value at Risk",
+        fontsize=18,
+        fontweight="bold"
+    )
+
+    plt.xlabel("Rendimento giornaliero", fontsize=13)
+    plt.ylabel("Densità", fontsize=13)
+    plt.grid(alpha=0.3)
+    plt.legend(fontsize=12)
+
+    save_current_figure("var_distribution.png")
+
+    plt.show()

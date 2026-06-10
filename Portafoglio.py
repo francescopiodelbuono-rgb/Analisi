@@ -45,7 +45,8 @@ from src.performance import (
 
 from src.plots import (
     save_current_figure,
-    plot_max_drawdown
+    plot_max_drawdown,
+    plot_var_distribution
 )
 
 # =========================
@@ -549,92 +550,11 @@ print(f"Perdita stimata VaR parametrico su €{initial_capital:,.0f}: €{parame
 # GRAFICO DISTRIBUZIONE + VAR
 # =========================
 
-from scipy.stats import norm
-
-plt.figure(figsize=(14, 7))
-
-# Istogramma rendimenti
-plt.hist(
-    portfolio_returns,
-    bins=50,
-    density=True,
-    alpha=0.6,
-    edgecolor="black",
-    label="Rendimenti giornalieri"
+plot_var_distribution(
+    portfolio_returns=portfolio_returns,
+    historical_var=historical_var,
+    parametric_var=parametric_var
 )
-
-# Curva normale teorica
-x = np.linspace(
-    portfolio_returns.min(),
-    portfolio_returns.max(),
-    1000
-)
-
-plt.plot(
-    x,
-    norm.pdf(
-        x,
-        portfolio_returns.mean(),
-        portfolio_returns.std()
-    ),
-    linewidth=2,
-    label="Distribuzione normale teorica"
-)
-
-# Linea VaR storico
-plt.axvline(
-    historical_var,
-    linestyle="--",
-    linewidth=2,
-    label=f"VaR Storico 95%: {historical_var:.2%}"
-)
-
-# Linea VaR parametrico
-plt.axvline(
-    parametric_var,
-    linestyle="--",
-    linewidth=2,
-    color="red",
-    label=f"VaR Parametrico 95%: {parametric_var:.2%}"
-)
-
-# Media rendimenti
-plt.axvline(
-    portfolio_returns.mean(),
-    linestyle=":",
-    linewidth=2,
-    label=f"Media: {portfolio_returns.mean():.2%}"
-)
-
-# Area rischio estremo
-plt.axvspan(
-    portfolio_returns.min(),
-    historical_var,
-    alpha=0.2
-)
-
-# Titolo
-plt.title(
-    "Distribuzione Rendimenti Giornalieri e Value at Risk",
-    fontsize=18,
-    fontweight="bold"
-)
-
-plt.xlabel(
-    "Rendimento giornaliero",
-    fontsize=13
-)
-
-plt.ylabel(
-    "Densità",
-    fontsize=13
-)
-
-plt.grid(alpha=0.3)
-
-plt.legend(fontsize=12)
-
-plt.show()
 
 ### La vicinanza tra i due VaR suggerisce una buona stabilità 
 ### statistica del portafoglio nel periodo analizzato
