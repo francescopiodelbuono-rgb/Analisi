@@ -43,6 +43,11 @@ from src.performance import (
     calculate_basic_performance_metrics
 )
 
+from src.plots import (
+    save_current_figure,
+    plot_max_drawdown
+)
+
 # =========================
 # HTML PARSING JUSTETF
 # =========================
@@ -499,144 +504,16 @@ portfolio_value_aligned = (
 # GRAFICO PROFESSIONALE PORTAFOGLIO + MAX DRAWDOWN
 # =========================
 
-fig, ax1 = plt.subplots(figsize=(16, 8))
-
-# Area drawdown: distanza tra massimo storico e valore portafoglio
-ax1.fill_between(
-    portfolio_value.index,
-    portfolio_value,
-    running_max,
-    where=portfolio_value < running_max,
-    alpha=0.20,
-    label="Area Drawdown"
+plot_max_drawdown(
+    portfolio_value=portfolio_value,
+    running_max=running_max,
+    drawdown=drawdown,
+    benchmark_value=benchmark_value,
+    worst_date=worst_date,
+    trough_value=trough_value,
+    max_drawdown=max_drawdown,
+    initial_capital=initial_capital
 )
-
-# Valore portafoglio
-ax1.plot(
-    portfolio_value.index,
-    portfolio_value,
-    linewidth=2,
-    label="Portafoglio"
-)
-
-ax1.plot(
-    benchmark_value.index,
-    benchmark_value,
-    linewidth=1,
-    linestyle="-",
-    color="gold",
-    label="MSCI World Benchmark (€10.000)"
-)
-
-# =========================
-# MASSIMO STORICO SOLO IN DRAWDOWN > 5%
-# =========================
-
-threshold = -0.05
-
-running_max_filtered = pd.Series(
-    np.nan,
-    index=running_max.index
-)
-
-in_drawdown_zone = False
-peak_value = None
-
-for i in range(len(drawdown)):
-
-    current_drawdown = drawdown.iloc[i]
-    current_running_max = running_max.iloc[i]
-    current_portfolio = portfolio_value.iloc[i]
-
-    # Attiva visualizzazione quando drawdown supera -5%
-    if current_drawdown <= threshold and not in_drawdown_zone:
-        in_drawdown_zone = True
-        peak_value = current_running_max
-
-    # Mantiene linea fino al recupero del massimo
-    if in_drawdown_zone:
-        running_max_filtered.iloc[i] = peak_value
-
-    # Disattiva quando massimo viene recuperato/superato
-    if in_drawdown_zone and current_portfolio >= peak_value:
-        in_drawdown_zone = False
-        peak_value = None
-
-# Grafico massimo storico filtrato
-ax1.plot(
-    running_max_filtered.index,
-    running_max_filtered,
-    linestyle="--",
-    linewidth=2,
-    color="orange",
-    label="Massimo Storico (>5% Drawdown)"
-)
-
-# Punto Max Drawdown
-ax1.scatter(
-    worst_date,
-    trough_value,
-    color="red",
-    s=140,
-    zorder=5,
-    label="Max Drawdown"
-)
-
-return_at_drawdown = ((trough_value / initial_capital) - 1) * 100
-
-ax1.annotate(
-    f"€{trough_value:,.0f}\nRendimento: {return_at_drawdown:.2f}%\nMax DD: {max_drawdown:.2%}",
-    xy=(worst_date, trough_value),
-    xytext=(55, 25),
-    textcoords="offset points",
-    ha="left",
-    va="center",
-    fontsize=10,
-    fontweight="bold",
-    color="red",
-    bbox=dict(
-        boxstyle="round,pad=0.4",
-        edgecolor="red",
-        facecolor="white",
-        alpha=0.95
-    ),
-    arrowprops=dict(
-        arrowstyle="->",
-        color="red",
-        linewidth=1.5
-    )
-)
-
-# Asse sinistro
-ax1.set_title(
-    "Portfolio Performance and Maximum Drawdown",
-    fontsize=18,
-    fontweight="bold"
-)
-
-ax1.set_xlabel("Data", fontsize=12)
-ax1.set_ylabel("Valore Portafoglio (€)", fontsize=12)
-
-ax1.grid(True, alpha=0.3)
-
-# Asse destro rendimento cumulato
-ax2 = ax1.twinx()
-
-portfolio_return_percent = ((portfolio_value / initial_capital) - 1) * 100
-
-ax2.set_ylim(
-    portfolio_return_percent.min(),
-    portfolio_return_percent.max()
-)
-
-ax2.set_ylabel("Rendimento Cumulato (%)", fontsize=12)
-
-# Legenda
-lines1, labels1 = ax1.get_legend_handles_labels()
-ax1.legend(lines1, labels1, loc="upper left", frameon=True)
-
-plt.tight_layout()
-plt.show()
 
 
 
@@ -1563,11 +1440,9 @@ plt.tight_layout()
 rolling_figure_file = (
     FIGURES_DIR / "rolling_correlation_beta_benchmark.png"
 )
-plt.savefig(
-    rolling_figure_file,
-    dpi=300,
-    bbox_inches="tight"
-)
+
+save_current_figure("nome_grafico.png")
+
 plt.show()
 
 print(f"Metriche relative salvate in: {relative_metrics_output_file}")
