@@ -47,7 +47,8 @@ from src.plots import (
     save_current_figure,
     plot_max_drawdown,
     plot_var_distribution,
-    plot_rolling_volatility
+    plot_rolling_volatility,
+    plot_efficient_frontier
 )
 
 # =========================
@@ -750,99 +751,13 @@ print(min_vol_sharpe)
 # GRAFICO EFFICIENT FRONTIER
 # =========================
 
-plt.figure(figsize=(14, 8))
-
-plt.scatter(
-    results[1, :],
-    results[0, :],
-    c=results[2, :],
-    cmap="viridis",
-    s=12,
-    alpha=0.7
+plot_efficient_frontier(
+    results=results,
+    best_volatility=best_volatility,
+    best_return=best_return,
+    min_vol_volatility=min_vol_volatility,
+    min_vol_return=min_vol_return
 )
-
-plt.colorbar(label="Sharpe Ratio")
-
-plt.scatter(
-    best_volatility,
-    best_return,
-    marker="*",
-    s=350,
-    color="red",
-    label="Max Sharpe Portfolio"
-)
-
-plt.scatter(
-    min_vol_volatility,
-    min_vol_return,
-    marker="D",
-    s=180,
-    color="orange",
-    label="Minimum Volatility Portfolio"
-)
-
-plt.title(
-    "Efficient Frontier - Portfolio Optimization",
-    fontsize=18,
-    fontweight="bold"
-)
-
-plt.xlabel("Volatilità annualizzata", fontsize=12)
-plt.ylabel("Rendimento atteso annualizzato", fontsize=12)
-
-plt.legend()
-plt.grid(alpha=0.3)
-
-# =========================
-# LINEA FRONTIERA EFFICIENTE SMUSSATA
-# =========================
-
-frontier_df = pd.DataFrame({
-    "Volatilità": results[1, :],
-    "Rendimento": results[0, :]
-})
-
-frontier_df = frontier_df.sort_values("Volatilità")
-
-vol_bins = np.linspace(
-    frontier_df["Volatilità"].min(),
-    frontier_df["Volatilità"].max(),
-    80
-)
-
-frontier_points = []
-
-for i in range(len(vol_bins) - 1):
-    subset = frontier_df[
-        (frontier_df["Volatilità"] >= vol_bins[i]) &
-        (frontier_df["Volatilità"] < vol_bins[i + 1])
-    ]
-
-    if not subset.empty:
-        best_point = subset.loc[subset["Rendimento"].idxmax()]
-        frontier_points.append(best_point)
-
-frontier_line = pd.DataFrame(frontier_points)
-
-# Smussamento della frontiera
-frontier_line["Rendimento_Smoothed"] = (
-    frontier_line["Rendimento"]
-    .rolling(window=15, center=True)
-    .mean()
-)
-
-frontier_line = frontier_line.dropna()
-
-plt.plot(
-    frontier_line["Volatilità"],
-    frontier_line["Rendimento_Smoothed"],
-    color="black",
-    linewidth=3,
-    label="Frontiera Efficiente"
-)
-
-plt.show()
-
 
 # =========================
 # ESPOSIZIONE GEOGRAFICA DEL MIGLIOR PORTAFOGLIO
